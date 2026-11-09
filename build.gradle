@@ -1,15 +1,53 @@
-plugins { id 'org.springframework.boot' }
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.barofit'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.add('-parameters')
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+    }
+}
 
 dependencies {
-    implementation project(':shared:runtime')
+    implementation 'com.barofit:barofit-runtime:0.0.1-SNAPSHOT'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+tasks.named('test') {
+    useJUnitPlatform()
+    // compose.yaml과 같은 postgres 이미지 사용(모노레포 시절 compose.yaml 기준 하드코딩)
+    jvmArgumentProviders.add({ ["-Dbarofit.test.postgres-image=postgres:18.6"] } as CommandLineArgumentProvider)
+}
 tasks.named('bootJar') { archiveFileName = 'app.jar' }
 tasks.named('bootRun') { workingDir = rootProject.projectDir }
-apply from: rootProject.file('gradle/service-isolation.gradle')

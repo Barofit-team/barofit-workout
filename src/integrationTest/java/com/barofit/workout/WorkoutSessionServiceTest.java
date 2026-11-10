@@ -7,12 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.barofit.WorkoutApplication;
 import com.barofit.common.error.BusinessException;
+import com.barofit.testsupport.BarofitJwtKeyTestSupport;
+import com.barofit.testsupport.BarofitPostgresTestSupport;
 import com.barofit.workout.WorkoutDtos.*;
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -21,37 +18,19 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(
     classes = WorkoutApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
+@Import({BarofitPostgresTestSupport.class, BarofitJwtKeyTestSupport.class})
 @Transactional
 class WorkoutSessionServiceTest {
-  @Container
-  static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18.6");
-
-  @DynamicPropertySource
-  static void properties(DynamicPropertyRegistry properties) throws Exception {
-    RSAKey key = new RSAKeyGenerator(2048).keyID("test").generate();
-    Path jwks = Files.createTempFile("barofit-workout-test-", ".json");
-    Files.writeString(jwks, new JWKSet(key.toPublicJWK()).toString());
-    jwks.toFile().deleteOnExit();
-    properties.add("spring.datasource.url", postgres::getJdbcUrl);
-    properties.add("spring.datasource.username", postgres::getUsername);
-    properties.add("spring.datasource.password", postgres::getPassword);
-    properties.add("barofit.jwt.public-jwks-path", jwks::toString);
-  }
 
   @Autowired WorkoutSessionService service;
   @Autowired WeeklyWorkoutProgressService progress;

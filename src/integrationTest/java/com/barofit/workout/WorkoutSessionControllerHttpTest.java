@@ -59,7 +59,12 @@ class WorkoutSessionControllerHttpTest {
     UUID routineId = UUID.randomUUID();
     String token = bearer(user);
     String accessToken = token.substring("Bearer ".length());
-    String snapshot = "{\"id\":\"%s\",\"type\":\"USER\",\"exercises\":[]}".formatted(routineId);
+    UUID setId = UUID.randomUUID();
+    String snapshot =
+        """
+        {"id":"%s","type":"USER","exercises":[{"exerciseId":"push-up","sets":[{"id":"%s"}]}]}
+        """
+            .formatted(routineId, setId);
     when(routines.fetch(eq(routineId), eq("USER"), eq(accessToken)))
         .thenReturn(new tools.jackson.databind.ObjectMapper().readTree(snapshot));
 
@@ -92,7 +97,12 @@ class WorkoutSessionControllerHttpTest {
     UUID routineId = UUID.randomUUID();
     String ownerToken = bearer(owner);
     String ownerAccessToken = ownerToken.substring("Bearer ".length());
-    String snapshot = "{\"id\":\"%s\",\"type\":\"USER\",\"exercises\":[]}".formatted(routineId);
+    UUID setId = UUID.randomUUID();
+    String snapshot =
+        """
+        {"id":"%s","type":"USER","exercises":[{"exerciseId":"push-up","sets":[{"id":"%s"}]}]}
+        """
+            .formatted(routineId, setId);
     when(routines.fetch(eq(routineId), eq("USER"), eq(ownerAccessToken)))
         .thenReturn(new tools.jackson.databind.ObjectMapper().readTree(snapshot));
     String request =

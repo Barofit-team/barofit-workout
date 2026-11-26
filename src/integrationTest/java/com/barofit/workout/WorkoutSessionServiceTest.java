@@ -39,6 +39,40 @@ class WorkoutSessionServiceTest {
   @MockitoBean RoutineSnapshotClient routines;
 
   @Test
+  void olderOfflineSnapshotAcceptsOnlyNewDefaultFields() {
+    UUID user = UUID.randomUUID(), routineId = UUID.randomUUID(), setId = UUID.randomUUID();
+    var old =
+        json.readTree(
+            "{\"id\":\"%s\",\"type\":\"USER\",\"exercises\":[{\"sets\":[{\"id\":\"%s\"}]}]}"
+                .formatted(routineId, setId));
+    var current =
+        json.readTree(
+            "{\"id\":\"%s\",\"type\":\"USER\",\"interExerciseRestSeconds\":60,\"exercises\":[{\"sets\":[{\"id\":\"%s\",\"timeLimitSeconds\":null}]}]}"
+                .formatted(routineId, setId));
+    when(routines.fetch(eq(routineId), eq("USER"), eq("test-token"))).thenReturn(current);
+    var request =
+        new SyncRequest(
+            routineId,
+            old,
+            SessionStatus.ACTIVE,
+            0L,
+            Instant.parse("2026-10-20T09:00:00Z"),
+            null,
+            0,
+            List.of());
+    var saved = service.sync(user, UUID.randomUUID(), request, "test-token");
+    assertThat(saved.routineSnapshot()).isEqualTo(old);
+    var changed =
+        json.readTree(
+            current
+                .toString()
+                .replace("\"interExerciseRestSeconds\":60", "\"interExerciseRestSeconds\":80"));
+    when(routines.fetch(eq(routineId), eq("USER"), eq("test-token"))).thenReturn(changed);
+    assertThatThrownBy(() -> service.sync(user, UUID.randomUUID(), request, "test-token"))
+        .isInstanceOf(BusinessException.class);
+  }
+
+  @Test
   void legacyRequestSerializationDoesNotChangeWhenRestIsMissing() {
     var request =
         new SyncRequest(
@@ -257,6 +291,11 @@ class WorkoutSessionServiceTest {
             List.of(first, second, third)),
         "test-token");
     assertThat(progress.get(user, week).completedDates()).containsExactly(week);
+    var weekly = progress.currentWeeklyStreak(user, 1);
+    assertThat(weekly.streakWeeks())
+        .isEqualTo(
+            WeeklyWorkoutProgressService.weeklyStreak(weekly.asOf(), java.util.Set.of(week), 1));
+    assertThat(progress.currentWeeklyStreak(UUID.randomUUID(), 1).streakWeeks()).isZero();
     assertThat(progress.get(UUID.randomUUID(), week).completedDates()).isEmpty();
   }
 

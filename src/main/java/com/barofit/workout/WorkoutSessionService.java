@@ -355,8 +355,16 @@ public class WorkoutSessionService {
       for (var entry : left.properties()) {
         String name = entry.getKey();
         if (root && (name.equals("createdAt") || name.equals("updatedAt"))) continue;
-        if (!right.has(name) || !sameJsonValue(entry.getValue(), right.get(name), false))
+        if (!right.has(name)) {
+          // left는 서버 원본이다. 구버전 오프라인 스냅샷에 없는 새 필드는 기본값만 허용한다.
+          if (root
+              && name.equals("interExerciseRestSeconds")
+              && entry.getValue().isInt()
+              && entry.getValue().intValue() == 60) continue;
+          if (name.equals("timeLimitSeconds") && entry.getValue().isNull()) continue;
           return false;
+        }
+        if (!sameJsonValue(entry.getValue(), right.get(name), false)) return false;
       }
       for (var entry : right.properties()) {
         String name = entry.getKey();

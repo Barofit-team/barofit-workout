@@ -51,6 +51,16 @@ public class WorkoutSessionController {
     return progress.currentStreak(user(principal));
   }
 
+  @GetMapping("/weekly-streak")
+  @Operation(
+      summary = "주간 목표 연속 달성 주 수",
+      description =
+          "현재 주간 목표 횟수를 기준으로 계산합니다. 이번 주가 미달성인 동안 지난주까지의 기록을 유지하고, 이번 주 달성 시 포함합니다. 완료 판정과 날짜 중복 제거는 주간 완료 기준을 따릅니다.")
+  public WeeklyWorkoutProgressService.WeeklyStreakResult weeklyStreak(
+      @RequestParam int weeklyGoal, Principal principal) {
+    return progress.currentWeeklyStreak(user(principal), weeklyGoal);
+  }
+
   @PutMapping("/{sessionId}")
   @Operation(
       summary = "운동 세션 생성·동기화",

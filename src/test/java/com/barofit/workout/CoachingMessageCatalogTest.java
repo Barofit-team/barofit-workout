@@ -46,7 +46,7 @@ class CoachingMessageCatalogTest {
     var event = json.readTree("{\"exerciseId\":\"push-up\"}");
     assertThat(
             CoachingMessageCatalog.text(CoachingStyle.FRIENDLY, "EXERCISE_START", event, snapshot))
-        .contains("함께 준비해요", "손을 어깨 너비로 짚으세요");
+        .contains("지금 운동을 시작할게요", "손을 어깨 너비로 짚으세요");
     assertThat(CoachingMessageCatalog.text(CoachingStyle.SPARTA, "EXERCISE_START", event, snapshot))
         .contains("자세를 잡으세요", "손을 어깨 너비로 짚으세요");
     assertThat(

@@ -236,9 +236,10 @@ class WorkoutSessionServiceTest {
         new SetResult(
             ids[2], null, 20, List.of(), Map.of(), null, null, null, null, start.plusSeconds(90));
     LocalDate week = LocalDate.parse("2026-10-19");
+    UUID interrupted = UUID.randomUUID();
     service.sync(
         user,
-        UUID.randomUUID(),
+        interrupted,
         new SyncRequest(
             routineId,
             snapshot,
@@ -252,12 +253,12 @@ class WorkoutSessionServiceTest {
     assertThat(progress.get(user, week).completedDates()).isEmpty();
     service.sync(
         user,
-        UUID.randomUUID(),
+        interrupted,
         new SyncRequest(
             routineId,
             snapshot,
             SessionStatus.ABANDONED,
-            0L,
+            1L,
             start,
             start.plusSeconds(600),
             90,
@@ -277,19 +278,22 @@ class WorkoutSessionServiceTest {
             90,
             List.of(first, second, third)),
         "test-token");
-    service.sync(
-        user,
-        UUID.randomUUID(),
-        new SyncRequest(
-            routineId,
-            snapshot,
-            SessionStatus.COMPLETED,
-            0L,
-            start,
-            start.plusSeconds(660),
-            90,
-            List.of(first, second, third)),
-        "test-token");
+    assertThatThrownBy(() ->
+            service.sync(
+                user,
+                UUID.randomUUID(),
+                new SyncRequest(
+                    routineId,
+                    snapshot,
+                    SessionStatus.COMPLETED,
+                    0L,
+                    start,
+                    start.plusSeconds(660),
+                    90,
+                    List.of(first, second, third)),
+                "test-token"))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("이미 완료");
     assertThat(progress.get(user, week).completedDates()).containsExactly(week);
     var weekly = progress.currentWeeklyStreak(user, 1);
     assertThat(weekly.streakWeeks())
@@ -332,7 +336,7 @@ class WorkoutSessionServiceTest {
         new SyncRequest(
             routineId,
             snapshot,
-            SessionStatus.COMPLETED,
+            SessionStatus.ABANDONED,
             0L,
             start,
             start.plusSeconds(600),

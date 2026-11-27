@@ -50,10 +50,10 @@ public final class CoachingMessageCatalog {
       if (intro.isBlank()) return null;
       String prefix =
           switch (style) {
-            case FRIENDLY -> "좋아요, 다음 동작을 함께 준비해요. ";
-            case CALM -> "다음 동작을 준비합니다. ";
-            case SPARTA -> "다음 동작입니다. 자세를 잡으세요. ";
-            case ANALYTICAL -> "다음 동작의 준비 자세와 수행 방법입니다. ";
+            case FRIENDLY -> "좋아요, 지금 운동을 시작할게요. ";
+            case CALM -> "지금 운동을 시작합니다. ";
+            case SPARTA -> "운동 시작! 자세를 잡으세요. ";
+            case ANALYTICAL -> "운동을 시작합니다. 수행 자세를 확인하세요. ";
           };
       String text = prefix + intro;
       return text.substring(0, Math.min(text.length(), 300));

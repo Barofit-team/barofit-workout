@@ -56,7 +56,7 @@ public class WeeklyWorkoutProgressService {
           coalesce(array_agg(r.routine_set_id::text) FILTER (WHERE r.actual_reps > 0 OR r.actual_duration_seconds > 0), ARRAY[]::text[]) AS performed
         FROM workout.workout_session s
         LEFT JOIN workout.workout_set_result r ON r.session_id = s.id
-        WHERE s.user_id = ? AND s.status IN ('COMPLETED','ABANDONED') AND s.ended_at <= now()
+        WHERE s.user_id = ? AND s.status = 'COMPLETED' AND s.ended_at <= now()
         GROUP BY s.id
         """,
         rs -> {
@@ -100,7 +100,7 @@ public class WeeklyWorkoutProgressService {
             """
             SELECT s.id, s.ended_at, s.routine_snapshot
             FROM workout.workout_session s
-            WHERE s.user_id = ? AND s.status IN ('COMPLETED','ABANDONED')
+            WHERE s.user_id = ? AND s.status = 'COMPLETED'
                 AND s.ended_at >= ? AND s.ended_at < ?
             """,
             (rs, row) ->

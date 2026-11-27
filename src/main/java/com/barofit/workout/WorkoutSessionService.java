@@ -41,6 +41,9 @@ public class WorkoutSessionService {
   public SessionResponse sync(
       UUID userId, UUID sessionId, SyncRequest request, String accessToken) {
     validate(request);
+    // Serialize all sessions of one user, including concurrent requests on different nodes.
+    jdbc.queryForObject(
+        "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", Object.class, userId.toString());
     String snapshot = stringify(request.routineSnapshot());
     String hash = sha256(stringify(request));
     int inserted =
@@ -86,6 +89,7 @@ public class WorkoutSessionService {
     if (!stored.snapshot().equals(request.routineSnapshot()))
       throw conflict("시작 시점의 루틴 스냅샷은 변경할 수 없습니다.");
     if (inserted == 1) {
+      enforceDailyPolicy(userId, sessionId, request);
       JsonNode source =
           routines.fetch(
               request.routineId(), request.routineSnapshot().path("type").asText(), accessToken);
@@ -103,6 +107,7 @@ public class WorkoutSessionService {
     if (stored.status() == SessionStatus.COMPLETED || stored.status() == SessionStatus.ABANDONED)
       throw conflict("종료된 세션은 수정할 수 없습니다.");
 
+    enforceDailyPolicy(userId, sessionId, request);
     jdbc.update(
         """
         UPDATE workout.workout_session SET status=?,revision=?,payload_hash=?,
@@ -120,8 +125,70 @@ public class WorkoutSessionService {
     return get(userId, sessionId);
   }
 
+  public record DailyState(LocalDate date, boolean completed, UUID activeSessionId) {}
+
+  @Transactional(readOnly = true)
+  public DailyState dailyState(UUID userId) {
+    LocalDate date = LocalDate.now(ZoneId.of("Asia/Seoul"));
+    var rows =
+        jdbc.query(
+            """
+            SELECT id,status FROM workout.workout_session
+            WHERE user_id=? AND (
+              (status='COMPLETED' AND (ended_at AT TIME ZONE 'Asia/Seoul')::date=?)
+              OR status IN ('ACTIVE','PAUSED'))
+            ORDER BY started_at DESC
+            """,
+            (rs, n) -> new Object[] {rs.getObject("id"), rs.getString("status")},
+            userId,
+            date);
+    boolean completed = rows.stream().anyMatch(row -> "COMPLETED".equals(row[1]));
+    UUID active =
+        rows.stream()
+            .filter(row -> !"COMPLETED".equals(row[1]))
+            .map(row -> (UUID) row[0])
+            .findFirst()
+            .orElse(null);
+    return new DailyState(date, completed, active);
+  }
+
+  private void enforceDailyPolicy(UUID userId, UUID sessionId, SyncRequest request) {
+    // Abandoning an old session must always remain possible to unblock switching.
+    if (request.status() == SessionStatus.ABANDONED) return;
+    LocalDate date =
+        (request.status() == SessionStatus.COMPLETED ? request.endedAt() : request.startedAt())
+            .atZone(ZoneId.of("Asia/Seoul"))
+            .toLocalDate();
+    Integer completed =
+        jdbc.queryForObject(
+            """
+            SELECT count(*) FROM workout.workout_session
+            WHERE user_id=? AND id<>? AND status='COMPLETED'
+              AND (ended_at AT TIME ZONE 'Asia/Seoul')::date=?
+            """,
+            Integer.class,
+            userId,
+            sessionId,
+            date);
+    if (completed != null && completed > 0)
+      throw new BusinessException(
+          WorkoutErrorCode.DAILY_WORKOUT_COMPLETED, "오늘의 루틴을 이미 완료했어요. 다음 운동은 내일 시작할 수 있어요.");
+    Integer active =
+        jdbc.queryForObject(
+            """
+            SELECT count(*) FROM workout.workout_session
+            WHERE user_id=? AND id<>? AND status IN ('ACTIVE','PAUSED')
+            """,
+            Integer.class,
+            userId,
+            sessionId);
+    if (active != null && active > 0)
+      throw new BusinessException(
+          WorkoutErrorCode.WORKOUT_ALREADY_IN_PROGRESS, "진행 중인 운동을 먼저 종료한 뒤 다른 루틴을 시작해 주세요.");
+  }
+
   private void enqueueCompletionIfQualified(UUID sessionId, SyncRequest request) {
-    if ((request.status() == SessionStatus.COMPLETED || request.status() == SessionStatus.ABANDONED)
+    if (request.status() == SessionStatus.COMPLETED
         && WorkoutCompletionPolicy.qualifies(request.routineSnapshot(), request.sets())) {
       jdbc.update(
           """
@@ -261,7 +328,8 @@ public class WorkoutSessionService {
           SessionResponse session = get(userId, id);
           return new HistoryItem(
               session,
-              WorkoutCompletionPolicy.qualifies(session.routineSnapshot(), session.sets()));
+              session.status() == SessionStatus.COMPLETED
+                  && WorkoutCompletionPolicy.qualifies(session.routineSnapshot(), session.sets()));
         })
         .toList();
   }

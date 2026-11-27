@@ -34,11 +34,19 @@ public class WorkoutSessionController {
     this.progress = progress;
   }
 
+  @GetMapping("/daily-state")
+  @Operation(
+      summary = "오늘의 루틴 완료 및 진행 상태",
+      description = "한국 시간 기준 하루 한 루틴 완료 정책입니다. 중단은 완료로 처리하지 않습니다.")
+  public WorkoutSessionService.DailyState dailyState(Principal principal) {
+    return service.dailyState(user(principal));
+  }
+
   @GetMapping("/weekly-progress")
   @Operation(
       summary = "주간 완료 날짜",
       description =
-          "종료된 세션에서 모든 예정 세트를 수행한 종목 수가 전체 종목 수의 약 70% 이상이면 완료로 표시합니다. 필요한 종목 수는 가장 가까운 정수로 반올림하므로 3종목 중 2종목이면 완료입니다. Asia/Seoul 기준이며 같은 날짜는 한 번만 셉니다.")
+          "정상 완료(COMPLETED)한 세션에서 모든 예정 세트를 수행한 종목 수가 전체 종목 수의 약 70% 이상이면 완료로 표시합니다. 필요한 종목 수는 가장 가까운 정수로 반올림하므로 3종목 중 2종목이면 완료입니다. Asia/Seoul 기준이며 같은 날짜는 한 번만 셉니다.")
   public WeeklyWorkoutProgressService.Result weeklyProgress(
       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart,
       Principal principal) {

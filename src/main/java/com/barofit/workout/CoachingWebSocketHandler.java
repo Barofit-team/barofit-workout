@@ -157,6 +157,8 @@ public class CoachingWebSocketHandler extends TextWebSocketHandler {
               text,
               "audioBase64",
               Base64.getEncoder().encodeToString(audio),
+              "requestId",
+              message.path("requestId").asText(""),
               "timestamp",
               Instant.now().toString());
       synchronized (socket) {
@@ -172,7 +174,14 @@ public class CoachingWebSocketHandler extends TextWebSocketHandler {
                 new TextMessage(
                     json.writeValueAsString(
                         Map.of(
-                            "type", event, "text", text, "timestamp", Instant.now().toString()))));
+                            "type",
+                            event,
+                            "text",
+                            text,
+                            "requestId",
+                            message.path("requestId").asText(""),
+                            "timestamp",
+                            Instant.now().toString()))));
         }
       } catch (Exception ignored) {
       }
